@@ -2,10 +2,12 @@ import torch
 import torch.optim as optim
 import numpy as np
 from torchvision.datasets import MNIST
-from torchvision.transforms import Compose
+from torchvision.transforms import Compose, ToTensor, Lambda
 from torch.utils.data import ConcatDataset
 from models.vcl_nn import DiscriminativeVCL
 from models.coreset import RandomCoreset
+from models.vi import Variationalize
+from models.multi_head_cnn import MultiHeadCNN
 from util.experiment_utils import run_point_estimate_initialisation, run_task
 from util.transforms import Flatten, Scale, Permute
 from util.datasets import NOTMNIST
@@ -36,16 +38,14 @@ def permuted_mnist():
     BATCH_SIZE = 256
     TRAIN_FULL_CORESET = True
 
-    # flattening and permutation used for each task
-    transforms = [Compose([Flatten(), Scale(), Permute(torch.randperm(MNIST_FLATTENED_DIM))]) for _ in range(N_TASKS)]
+    # permutation used for each task
+    # transforms = [Compose([Scale(), Permute(torch.randperm(MNIST_FLATTENED_DIM))]) for _ in range(N_TASKS)]
+    rng_permute = np.random.RandomState(92916)
+    idx_permute = torch.from_numpy(rng_permute.permutation(784), dtype=torch.int64)
+    transforms = Compose([ToTensor(), Lambda(lambda x: x.view(-1)[idx_permute].view(1, 28, 28) )])
 
     # create model, single-headed in permuted MNIST experiment
-    model = DiscriminativeVCL(
-        in_size=MNIST_FLATTENED_DIM, out_size=N_CLASSES,
-        layer_width=LAYER_WIDTH, n_hidden_layers=N_HIDDEN_LAYERS,
-        n_heads=(N_TASKS if MULTIHEADED else 1),
-        initial_posterior_var=INITIAL_POSTERIOR_VAR
-    ).to(device)
+    model = Variationalize(MultiHeadCNN().to(device))
     coreset = RandomCoreset(size=CORESET_SIZE)
 
     mnist_train = ConcatDataset(
@@ -66,11 +66,11 @@ def permuted_mnist():
 
     summary_logdir = os.path.join("logs", "disc_p_mnist", datetime.now().strftime('%b%d_%H-%M-%S'))
     writer = SummaryWriter(summary_logdir)
-    run_point_estimate_initialisation(model=model, data=mnist_train,
-                                      epochs=EPOCHS, batch_size=BATCH_SIZE,
-                                      device=device, lr=LR,
-                                      multiheaded=MULTIHEADED,
-                                      task_ids=train_task_ids)
+    # run_point_estimate_initialisation(model=model, data=mnist_train,
+    #                                   epochs=EPOCHS, batch_size=BATCH_SIZE,
+    #                                   device=device, lr=LR,
+    #                                   multiheaded=MULTIHEADED,
+    #                                   task_ids=train_task_ids)
 
     # each task is classification of MNIST images with permuted pixels
     for task in range(N_TASKS):
