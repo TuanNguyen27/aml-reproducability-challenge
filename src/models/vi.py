@@ -6,7 +6,7 @@ from collections import namedtuple
 from collections import OrderedDict
 from scipy.special import gammaln
 import numpy as np
-
+import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torch.nn.parameter import Parameter
@@ -14,6 +14,8 @@ from torch.nn.parameter import Parameter
 VariationalParameter = namedtuple('VariationalParameter',
                                   ['posterior_mean', 'posterior_rho', 'eps', 'prior_mean', 'prior_rho'])
 
+TRAIN_NUM_SAMPLES = 10
+TEST_NUM_SAMPLES = 50
 
 def evaluate(variational_parameter):
     """ Evaluates the current value of a variational parameter.
@@ -367,6 +369,31 @@ class Variationalize(nn.Module):
     def prior_loss(self):
         """ Returns the prior loss """
         return self._prior_loss_function()
+
+    def prediction(self, x, head, num_samples=TEST_NUM_SAMPLES):
+        """Returns an integer between 0 and self.out_size"""
+        outputs = torch.empty(num_samples, len(x), self.out_size)
+        for i in range(num_samples):
+            outputs[i] = torch.exp(self.forward(x, head))
+        predictions = outputs.mean(dim=0)
+        return torch.argmax(predictions, dim=1)
+
+    
+    def _log_prob(self, x, y, head=0, num_samples=TEST_NUM_SAMPLES):
+        outputs = []
+        for i in range(num_samples):
+            outputs.append(torch.exp(self.forward(x, head)))
+
+        return - F.nll_loss(torch.cat(outputs), y.repeat(num_samples).view(-1))
+
+
+    def vcl_loss(self, x, y, head=0, task_size, num_samples=TRAIN_NUM_SAMPLES) -> torch.Tensor:
+        """
+        Returns the loss of the model, as described in equation 4 of the Variational
+        Continual Learning paper (https://arxiv.org/abs/1710.10628).
+        """
+        return self.prior_loss().cpu() / task_size - self._log_prob(x, y, head, num_samples)
+
 
 
 class Sample(nn.Module):

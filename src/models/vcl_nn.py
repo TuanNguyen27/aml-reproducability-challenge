@@ -21,8 +21,6 @@ class DiscriminativeVCL(nn.Module):
         super().__init__()
         self.input_size = in_size
         self.out_size = out_size
-        self.n_hidden_layers = n_hidden_layers
-        self.layer_width = layer_width
         self.n_heads = n_heads
 
         print("Number of heads:", n_heads)
