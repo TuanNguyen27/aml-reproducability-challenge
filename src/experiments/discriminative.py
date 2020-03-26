@@ -19,7 +19,7 @@ MNIST_FLATTENED_DIM = 28 * 28
 LR = 0.001
 INITIAL_POSTERIOR_VAR = 1e-3
 
-device = torch.device("cpu")
+device = torch.device("gpu")
 print("Running on device", device)
 
 
@@ -42,7 +42,7 @@ def permuted_mnist():
     # transforms = [Compose([Scale(), Permute(torch.randperm(MNIST_FLATTENED_DIM))]) for _ in range(N_TASKS)]
     rng_permute = np.random.RandomState(92916)
     idx_permute = torch.from_numpy(rng_permute.permutation(784), dtype=torch.int64)
-    transforms = Compose([ToTensor(), Lambda(lambda x: x.view(-1)[idx_permute].view(1, 28, 28) )])
+    transforms = [Compose([ToTensor(), Lambda(lambda x: x.view(-1)[idx_permute].view(1, 28, 28) )]) for _ in range(N_TASKS)]
 
     # create model, single-headed in permuted MNIST experiment
     model = Variationalize(MultiHeadCNN().to(device))
@@ -101,7 +101,7 @@ def split_mnist():
     BATCH_SIZE = 50000
     TRAIN_FULL_CORESET = True
 
-    transform = Compose([Flatten(), Scale()])
+    transform = Compose([Scale()])
 
     # download dataset
     mnist_train = MNIST(root="data", train=True, download=True, transform=transform)
