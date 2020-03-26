@@ -387,7 +387,7 @@ class Variationalize(nn.Module):
         return - F.nll_loss(torch.cat(outputs), y.repeat(num_samples).view(-1))
 
 
-    def vcl_loss(self, x, y, head=0, task_size, num_samples=TRAIN_NUM_SAMPLES) -> torch.Tensor:
+    def vcl_loss(self, x, y, head, task_size, num_samples=TRAIN_NUM_SAMPLES) -> torch.Tensor:
         """
         Returns the loss of the model, as described in equation 4 of the Variational
         Continual Learning paper (https://arxiv.org/abs/1710.10628).
