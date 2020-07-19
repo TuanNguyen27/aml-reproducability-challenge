@@ -19,15 +19,16 @@ class MultiHeadCNN(torch.nn.Module):
         self.y_dim = 10 if perm_mnist else 2
         # multi-heads
         self.heads = torch.nn.ModuleList([
-            torch.nn.Linear(128, self.y_dim) for _ in range(n_heads)
+            torch.nn.Linear(128, self.y_dim) for _ in range(self.n_heads)
         ])
 
         self.softmax = torch.nn.Softmax(dim=1)
 
-    def forward(self, x, head_idx):
+    def forward(self, x, head_idx=0):
         x = self.conv1(x)
         x = F.relu(x)
         x = self.conv2(x)
+        x = F.relu(x)
         x = F.max_pool2d(x, 2)
         x = self.dropout1(x)
         x = torch.flatten(x, 1)
@@ -35,6 +36,5 @@ class MultiHeadCNN(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout2(x)
         x = self.heads[head_idx](x)
-        return F.log_softmax(x, dim=1)
-
-    
+        output = F.log_softmax(x, dim=1)
+        return output
