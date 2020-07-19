@@ -18,7 +18,7 @@ MNIST_FLATTENED_DIM = 28 * 28
 LR = 0.001
 INITIAL_POSTERIOR_VAR = 1e-3
 
-device = torch.device("gpu")
+device = torch.device("cuda")
 print("Running on device", device)
 
 
