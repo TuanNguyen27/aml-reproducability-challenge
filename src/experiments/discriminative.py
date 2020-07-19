@@ -2,14 +2,13 @@ import torch
 import torch.optim as optim
 import numpy as np
 from torchvision.datasets import MNIST
-from torchvision.transforms import Compose, ToTensor, Lambda
+from torchvision.transforms import Compose, ToTensor, Lambda, Normalize
 from torch.utils.data import ConcatDataset
-from models.vcl_nn import DiscriminativeVCL
 from models.coreset import RandomCoreset
 from models.vi import Variationalize
 from models.multi_head_cnn import MultiHeadCNN
 from util.experiment_utils import run_point_estimate_initialisation, run_task
-from util.transforms import Flatten, Scale, Permute
+from util.transforms import Scale, Permute
 from util.datasets import NOTMNIST
 from tensorboardX import SummaryWriter
 import os
@@ -41,11 +40,12 @@ def permuted_mnist():
     # permutation used for each task
     # transforms = [Compose([Scale(), Permute(torch.randperm(MNIST_FLATTENED_DIM))]) for _ in range(N_TASKS)]
     rng_permute = np.random.RandomState(92916)
-    idx_permute = torch.from_numpy(rng_permute.permutation(784), dtype=torch.int64)
-    transforms = [Compose([ToTensor(), Lambda(lambda x: x.view(-1)[idx_permute].view(1, 28, 28) )]) for _ in range(N_TASKS)]
+    idx_permute = torch.from_numpy(rng_permute.permutation(784))
+    permute = Compose([ToTensor(), Normalize((0.1307,), (0.3081,)), Lambda(lambda x: x.view(-1)[idx_permute].view(1, 28, 28))])
+    transforms = [permute for _ in range(N_TASKS)]
 
     # create model, single-headed in permuted MNIST experiment
-    model = Variationalize(MultiHeadCNN().to(device))
+    model = Variationalize(MultiHeadCNN(n_heads=(N_TASKS if MULTIHEADED else 1), split_mnist=False).to(device))
     coreset = RandomCoreset(size=CORESET_SIZE)
 
     mnist_train = ConcatDataset(
@@ -107,12 +107,7 @@ def split_mnist():
     mnist_train = MNIST(root="data", train=True, download=True, transform=transform)
     mnist_test = MNIST(root="data", train=False, download=True, transform=transform)
 
-    model = DiscriminativeVCL(
-        in_size=MNIST_FLATTENED_DIM, out_size=N_CLASSES,
-        layer_width=LAYER_WIDTH, n_hidden_layers=N_HIDDEN_LAYERS,
-        n_heads=(N_TASKS if MULTIHEADED else 1),
-        initial_posterior_var=INITIAL_POSTERIOR_VAR
-    ).to(device)
+    model = Variationalize(MultiHeadCNN(n_heads=(N_TASKS if MULTIHEADED else 1), split_mnist=True).to(device))
 
     coreset = RandomCoreset(size=CORESET_SIZE)
 
@@ -137,11 +132,11 @@ def split_mnist():
     # each task is a binary classification task for a different pair of digits
     binarize_y = lambda y, task: (y == (2 * task + 1)).long()
 
-    run_point_estimate_initialisation(model=model, data=mnist_train,
-                                      epochs=EPOCHS, batch_size=BATCH_SIZE,
-                                      device=device, multiheaded=MULTIHEADED,
-                                      lr=LR, task_ids=train_task_ids,
-                                      y_transform=binarize_y)
+    # run_point_estimate_initialisation(model=model, data=mnist_train,
+    #                                   epochs=EPOCHS, batch_size=BATCH_SIZE,
+    #                                   device=device, multiheaded=MULTIHEADED,
+    #                                   lr=LR, task_ids=train_task_ids,
+    #                                   y_transform=binarize_y)
 
     for task_idx in range(N_TASKS):
         run_task(
@@ -172,17 +167,13 @@ def split_not_mnist():
     BATCH_SIZE = 400000
     TRAIN_FULL_CORESET = True
 
-    transform = Compose([Flatten(), Scale()])
+    transform = Compose([Scale()])
 
     not_mnist_train = NOTMNIST(train=True, overwrite=False, transform=transform)
     not_mnist_test = NOTMNIST(train=False, overwrite=False, transform=transform)
 
-    model = DiscriminativeVCL(
-        in_size=MNIST_FLATTENED_DIM, out_size=N_CLASSES,
-        layer_width=LAYER_WIDTH, n_hidden_layers=N_HIDDEN_LAYERS,
-        n_heads=(N_TASKS if MULTIHEADED else 1),
-        initial_posterior_var=INITIAL_POSTERIOR_VAR
-    ).to(device)
+    model = Variationalize(MultiHeadCNN(n_heads=(N_TASKS if MULTIHEADED else 1), split_mnist=True).to(device))
+
     optimizer = optim.Adam(model.parameters(), lr=LR)
     coreset = RandomCoreset(size=CORESET_SIZE)
 
@@ -205,11 +196,11 @@ def split_not_mnist():
     # binarize_y(c, n) is 1 when c is is the nth digit - A for task 0, B for task 1
     binarize_y = lambda y, task: (y == task).long()
 
-    run_point_estimate_initialisation(model=model, data=not_mnist_train,
-                                      epochs=EPOCHS, batch_size=BATCH_SIZE,
-                                      device=device, multiheaded=MULTIHEADED,
-                                      task_ids=train_task_ids, lr=LR,
-                                      y_transform=binarize_y)
+    # run_point_estimate_initialisation(model=model, data=not_mnist_train,
+    #                                   epochs=EPOCHS, batch_size=BATCH_SIZE,
+    #                                   device=device, multiheaded=MULTIHEADED,
+    #                                   task_ids=train_task_ids, lr=LR,
+    #                                   y_transform=binarize_y)
 
     for task_idx in range(N_TASKS):
         run_task(

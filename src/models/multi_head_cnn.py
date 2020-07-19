@@ -1,28 +1,24 @@
 import torch
-import torch.nn
 import torch.nn.functional as F
 
 class MultiHeadCNN(torch.nn.Module):
-    def __init__(self, n_heads=1, perm_mnist=True):
+    def __init__(self, n_heads=1, split_mnist=True):
         super().__init__()
         # check for bad parameters
         if n_heads < 1:
             raise ValueError('Network requires at least one head.')
 
-        self.n_heads = n_heads
         # shared network
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
-        self.dropout1 = nn.Dropout2d(0.25)
-        self.dropout2 = nn.Dropout2d(0.5)
-        self.fc1 = nn.Linear(9216, 128)
-        self.y_dim = 10 if perm_mnist else 2
+        self.conv1 = torch.nn.Conv2d(1, 32, 3, 1)
+        self.conv2 = torch.nn.Conv2d(32, 64, 3, 1)
+        self.dropout1 = torch.nn.Dropout2d(0.25)
+        self.dropout2 = torch.nn.Dropout2d(0.5)
+        self.fc1 = torch.nn.Linear(9216, 128)
+        self.y_dim = 10 if split_mnist else 2
         # multi-heads
         self.heads = torch.nn.ModuleList([
-            torch.nn.Linear(128, self.y_dim) for _ in range(self.n_heads)
+            torch.nn.Linear(128, self.y_dim) for _ in range(n_heads)
         ])
-
-        self.softmax = torch.nn.Softmax(dim=1)
 
     def forward(self, x, head_idx=0):
         x = self.conv1(x)

@@ -280,12 +280,18 @@ class Variationalize(nn.Module):
             dico[mname] = sub_dico
 
     def reset_for_next_task(self, head=0):
-        #TODO: add metadata to VariationalParameter so that 
-        # it resets the right head instead of all params
-        for name, p in self.dico.items():
-            if isinstance(p, VariationalParameter):
-                self.dico[name].prior_mean = p.posterior_mean
-                self.dico[name].prior_rho = p.posterior_rho
+        for layer_name in self.dico:
+            param_dict = self.dico[layer_name]
+            if layer_name == 'heads':
+                #only update priors for the right head
+                param_dict = self.dico[layer_name][str(head)]
+
+            #this is a shallow dictionary that contains weights, bias
+            #each of which contains prior_mean, prior_rho, posterior_mean, posterior_rho
+            for param_i in param_dict:
+                if isinstance(param_dict[param_i], VariationalParameter):
+                    self.dico[layer_name][param_i].prior_mean = param_dict[param_i].posterior_mean
+                    self.dico[layer_name][param_i].prior_rho = param_dict[param_i].posterior_rho
 
     def set_prior(self, prior_type, **prior_parameters):
         """ Change the prior to be used.
@@ -374,11 +380,11 @@ class Variationalize(nn.Module):
         """Returns an integer between 0 and self.out_size"""
         outputs = torch.empty(num_samples, len(x), self.out_size)
         for i in range(num_samples):
+            #TODO: do i need torch.exp here ?
             outputs[i] = torch.exp(self.forward(x, head))
         predictions = outputs.mean(dim=0)
         return torch.argmax(predictions, dim=1)
 
-    
     def _log_prob(self, x, y, head=0, num_samples=TEST_NUM_SAMPLES):
         outputs = []
         for i in range(num_samples):
@@ -386,15 +392,12 @@ class Variationalize(nn.Module):
 
         return - F.nll_loss(torch.cat(outputs), y.repeat(num_samples).view(-1))
 
-
     def vcl_loss(self, x, y, head, task_size, num_samples=TRAIN_NUM_SAMPLES) -> torch.Tensor:
         """
         Returns the loss of the model, as described in equation 4 of the Variational
         Continual Learning paper (https://arxiv.org/abs/1710.10628).
         """
         return self.prior_loss().cpu() / task_size - self._log_prob(x, y, head, num_samples)
-
-
 
 class Sample(nn.Module):
     """ Utility to sample a single model from a Variational Model.
