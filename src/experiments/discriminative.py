@@ -35,7 +35,7 @@ def permuted_mnist():
     CORESET_SIZE = 200
     EPOCHS = 100
     BATCH_SIZE = 256
-    TRAIN_FULL_CORESET = True
+    TRAIN_FULL_CORESET = False
 
     # permutation used for each task
     # transforms = [Compose([Scale(), Permute(torch.randperm(MNIST_FLATTENED_DIM))]) for _ in range(N_TASKS)]
@@ -46,7 +46,7 @@ def permuted_mnist():
 
     # create model, single-headed in permuted MNIST experiment
     model = Variationalize(MultiHeadCNN(n_heads=(N_TASKS if MULTIHEADED else 1), split_mnist=False).to(device))
-    coreset = RandomCoreset(size=CORESET_SIZE)
+    # coreset = RandomCoreset(size=CORESET_SIZE)
 
     mnist_train = ConcatDataset(
         [MNIST(root="data", train=True, download=True, transform=t) for t in transforms]
@@ -77,7 +77,7 @@ def permuted_mnist():
         run_task(
             model=model, train_data=mnist_train, train_task_ids=train_task_ids,
             test_data=mnist_test, test_task_ids=test_task_ids, task_idx=task,
-            coreset=coreset, epochs=EPOCHS, batch_size=BATCH_SIZE,
+            coreset=None, epochs=EPOCHS, batch_size=BATCH_SIZE,
             device=device, lr=LR, save_as="disc_p_mnist",
             multiheaded=MULTIHEADED, train_full_coreset=TRAIN_FULL_CORESET,
             summary_writer=writer
