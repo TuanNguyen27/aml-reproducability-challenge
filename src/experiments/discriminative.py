@@ -53,7 +53,7 @@ def permuted_mnist():
     )
     task_size = len(mnist_train) // N_TASKS
     train_task_ids = torch.cat(
-        [torch.full((task_size,), id) for id in range(N_TASKS)]
+        [torch.full((task_size,), id, dtype = torch.long) for id in range(N_TASKS)]
     )
 
     mnist_test = ConcatDataset(
@@ -61,7 +61,7 @@ def permuted_mnist():
     )
     task_size = len(mnist_test) // N_TASKS
     test_task_ids = torch.cat(
-        [torch.full((task_size,), id) for id in range(N_TASKS)]
+        [torch.full((task_size,), id, dtype = torch.long) for id in range(N_TASKS)]
     )
 
     summary_logdir = os.path.join("logs", "disc_p_mnist", datetime.now().strftime('%b%d_%H-%M-%S'))
