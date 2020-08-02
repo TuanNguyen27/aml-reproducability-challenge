@@ -127,6 +127,7 @@ class RandomCoreset(Coreset):
 
         # Need to split the x from the y values to also include the task values.
         # I don't like this way of doing it, but I couldn't find something better.
+        print(new_cs_data)
         new_cs_x = torch.tensor([x for x, _ in new_cs_data])
         new_cs_y = torch.tensor([y for _, y in new_cs_data])
 
